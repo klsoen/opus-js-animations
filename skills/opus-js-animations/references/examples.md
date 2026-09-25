@@ -25,6 +25,17 @@ whose sea, glitter, grass and tree keep moving. Measured timings, the scene and 
 story), the drawing and painting coming from the same scene data, and motion restricted to the things
 wind and water would move.
 
+## 4. "The Script of Me": an ingredients reel for a journal page (portrait, 48 s, Canvas 2D)
+
+A calm voice lists what went into one journal page, each ingredient with a short story; a new picture lands on every phrase, and the
+real page is revealed last. The opening is in the repo's `docs/script-of-me-opening.gif`: a macro of the page's clock stepping to half
+past midnight, a letterboxed pendulum whose swing quickens on "The heart is not", then the clock's parts arriving one by one in
+stop-motion on mauve paper under a numbered title (*No. 1* · THE CLOCK · *Brass · Water · Patience*).
+- **The voice sets every cut:** word times from the recorded voice; cuts land 0.05–0.15 s before each phrase.
+- **Two clocks:** stop-motion objects step at 15 poses a second (`floor(15t)/15`) while pushes and drawn lines move every frame.
+- **Shot vocabulary:** a macro of the real thing with a soft depth-of-field ellipse, a letterbox on black, a flat-lay whose parts land
+  with a lifted first pose, then settle; one caption per phrase in an italic serif.
+
 ## Patterns across them
 
 - One fixed subject, one place; the world (light, sky, time) changes around it.
@@ -36,3 +47,4 @@ wind and water would move.
 - Two halves of one saying can share one place and one set of pieces: gathered for one, scattered for the other.
 - Over a talk, one character living the words on one set beats a scene per sentence; a rewind gives the "other choice" for free.
 - The shorter the clip, the fewer the scenes: a 46 s talk holds two or three movements on one set; a 20 s saying, one scene.
+- A made thing (a page, a perfume, a dish) can be told as its ingredients, a short story each, and revealed last; the voice sets every cut.

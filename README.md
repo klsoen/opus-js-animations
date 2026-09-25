@@ -10,6 +10,11 @@ A skill and plugin for [Claude Code](https://claude.com/claude-code) that works 
 5. Only after your go, it writes the whole film as JavaScript and renders it frame by frame with your audio,
    for Reels, TikTok, Shorts, X or YouTube.
 
+<p align="center">
+  <img src="docs/script-of-me-opening.gif" width="270" alt="The opening of The Script of Me: a clock at half past midnight, a pendulum swinging in a pool of light, then the clock's parts laid out as No. 1, The Clock">
+</p>
+<p align="center"><sub><i>The Script of Me</i>, opening seconds: an "ingredients" reel for a journal page. Every frame is Canvas 2D, written by Opus 5.5.</sub></p>
+
 ## Why Opus 5.5
 
 Claude Opus 5.5 is a big step up at generating JavaScript animation. It can hold a whole film in its head and write it as one coherent program:
