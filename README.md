@@ -11,9 +11,11 @@ A skill and plugin for [Claude Code](https://claude.com/claude-code) that works 
    for Reels, TikTok, Shorts, X or YouTube.
 
 <p align="center">
-  <img src="docs/script-of-me-opening.gif" width="270" alt="The opening of The Script of Me: a clock at half past midnight, a pendulum swinging in a pool of light, then the clock's parts laid out as No. 1, The Clock">
+  <img src="docs/shaml-opening.gif" width="250" alt="The opening of Shaml: a gold medallion of cut paper bursts into spiral arms around a white-gold sun, then gathers above two men">
+  &nbsp;
+  <img src="docs/script-of-me-opening.gif" width="250" alt="The opening of The Script of Me: a clock at half past midnight, a pendulum swinging in a pool of light, then the clock's parts laid out as No. 1, The Clock">
 </p>
-<p align="center"><sub><i>The Script of Me</i>, opening seconds: an "ingredients" reel for a journal page. Every frame is Canvas 2D, written by Opus 5.5.</sub></p>
+<p align="center"><sub>Opening seconds of <i>Shaml</i> (a paper-lightbox scene) and <i>The Script of Me</i> (an "ingredients" reel for a journal page). Every frame is Canvas 2D, written by Opus 5.5.</sub></p>
 
 ## Why Opus 5.5
 

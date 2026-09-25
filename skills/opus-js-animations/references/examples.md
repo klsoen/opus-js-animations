@@ -36,6 +36,12 @@ stop-motion on mauve paper under a numbered title (*No. 1* · THE CLOCK · *Bras
 - **Shot vocabulary:** a macro of the real thing with a soft depth-of-field ellipse, a letterbox on black, a flat-lay whose parts land
   with a lifted first pose, then settle; one caption per phrase in an italic serif.
 
+## 5. "Shaml": a paper-lightbox scene (portrait + 16:9, 20.4 s, Canvas 2D)
+
+The style and its recipes are in `styles.md` §3. The opening is in the repo's `docs/shaml-opening.gif`: a medallion of 336 cut-paper
+pieces bursts into spiral arms around a white-gold sun while large blurred pieces fly past the lens; the camera pulls back as the
+pieces unwind home, and one half locks into place piece by piece and lights from within while the other stays loose.
+
 ## Patterns across them
 
 - One fixed subject, one place; the world (light, sky, time) changes around it.
