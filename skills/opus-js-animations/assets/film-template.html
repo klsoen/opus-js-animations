@@ -1,0 +1,236 @@
+<!doctype html>
+<!--
+  opus-js-animations starter: one self-contained film.
+  Contract (every tool drives this):  window.__film = { duration, ready, seek(t), shots?, marks? }
+  seek(t) draws exactly the frame at t (seconds) and must be pure in t.
+
+  URL params: ?t=12.5   freeze on a frame        ?capture=1   no player; tools call seek()
+              ?ss=2     supersampled: the canvas holds 2× the pixels (render.mjs --ss 2 scales each frame back down)
+  Keys: click / Space play-pause, F fullscreen.
+  Replace everything between "SCENE" markers; keep the contract, utils and player.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Film</title>
+<!-- Fonts: keep to one or two families. Remove if the film has no text. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { display: grid; place-items: center; }
+  /* letterbox the fixed backing store into any window */
+  canvas { max-width: 100vw; max-height: 100vh; width: auto; height: auto; display: block; }
+  #start { position: fixed; inset: 0; display: grid; place-items: center; color: #eee; font: italic 18px Georgia, serif;
+           background: rgba(0,0,0,.55); cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="start">click to play · sound on</div>
+<!-- Optional audio: a script that sets window.FILM_AUDIO_B64 (see scripts/embed_audio.py).
+     Embedding as base64 lets the page work from file://, where fetch and media elements are blocked. -->
+<script src="audio.js" onerror="window.FILM_AUDIO_B64 = null"></script>
+<script>
+'use strict';
+
+// ─── format ─────────────────────────────────────────────────────────────────
+// 1080×1920 portrait for Reels/TikTok/Shorts, 1080×1080 square, 1920×1080 landscape.
+const W = 1080, H = 1920, DURATION = 20;
+const TAU = Math.PI * 2, PI = Math.PI;
+// Supersampling: draw in film pixels (W × H) always. The canvas holds SS× the pixels; the main context scales transforms, shadows and
+// blurs by SS, and anything baked (text, sprites, buffers) bakes at SS× and is drawn with an explicit film-pixel size (delivery.md §3).
+const SS = Math.max(1, Math.round(Number(new URLSearchParams(location.search).get('ss')) || 1));
+function supersample(g, k) {                              // shadow and filter lengths ignore the transform, so they are scaled here
+  if (k === 1) return g;
+  const C2 = CanvasRenderingContext2D.prototype, st = C2.setTransform;
+  g.setTransform = function (a, b, c, d, e, f) { return st.call(this, a * k, b * k, c * k, d * k, e * k, f * k); };
+  g.resetTransform = function () { return st.call(this, k, 0, 0, k, 0, 0); };
+  for (const p of ['shadowBlur', 'shadowOffsetX', 'shadowOffsetY']) {
+    const d = Object.getOwnPropertyDescriptor(C2, p);
+    Object.defineProperty(g, p, { get() { return d.get.call(this) / k; }, set(v) { d.set.call(this, v * k); } });
+  }
+  const fd = Object.getOwnPropertyDescriptor(C2, 'filter');
+  Object.defineProperty(g, 'filter', { get() { return fd.get.call(this); }, set(v) { fd.set.call(this, String(v).replace(/(-?[\d.]+)px/g, (m, n) => `${+n * k}px`)); } });
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  return g;
+}
+const cv = document.getElementById('c');
+cv.width = W * SS; cv.height = H * SS;
+cv.style.aspectRatio = `${W} / ${H}`;
+const ctx = supersample(cv.getContext('2d'), SS);
+
+// ─── utils: everything is a function of time ────────────────────────────────
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const smooth = x => { x = clamp(x); return x * x * (3 - 2 * x); };
+const easeIO = x => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const lerp = (a, b, k) => a + (b - a) * k;
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+const rgba = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+// rises over [a,b], holds, falls over [c,d]
+const env = (t, a, b, c, d) => Math.min(smooth((t - a) / (b - a)), 1 - smooth((t - c) / (d - c)));
+// eased keyframes [[t, v], ...]; log = multiplicative (use for zoom and scale)
+function keyed(t, keys, log = false) {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]) {
+    const [t0, v0] = keys[i - 1], [t1, v1] = keys[i], k = easeIO((t - t0) / (t1 - t0));
+    return log ? v0 * Math.pow(v1 / v0, k) : lerp(v0, v1, k);
+  }
+  return keys[keys.length - 1][1];
+}
+// seeded randomness: never call Math.random() while drawing a frame
+function rng(seed) {
+  return () => {
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const table = (n, seed, f) => Array.from({ length: n }, (_, i) => f(rng(seed + i * 7919)));
+function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+
+// ─── text: set once per line, revealed with a rise and a soft focus pull ────
+const TEXT_FONT = 'italic 500 44px "EB Garamond", Georgia, serif';
+function wrap(mx, text, maxW) {
+  const words = text.split(' '), lines = []; let cur = '';
+  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (mx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
+  lines.push(cur); return lines;
+}
+// same line count as greedy wrapping, but lines of even length
+function balanced(mx, text, maxW) {
+  const n = wrap(mx, text, maxW).length;
+  if (n === 1) return [text];
+  let lo = maxW / n, hi = maxW;
+  for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; if (wrap(mx, text, m).length > n) lo = m; else hi = m; }
+  return wrap(mx, text, hi);
+}
+function setText(text, font, lineH, maxW, color, rtl = false) {   // → { c, w, h }: w × h film pixels, baked at SS×
+  const [, mx] = canvas(8, 8); mx.font = font;
+  const lines = balanced(mx, text, maxW), pad = 30, w = maxW + pad * 2, h = lines.length * lineH + pad * 2;
+  const [c, x] = canvas(w * SS, h * SS);
+  x.scale(SS, SS);
+  x.font = font; x.fillStyle = color; x.textAlign = 'center'; x.textBaseline = 'middle'; x.direction = rtl ? 'rtl' : 'ltr';
+  x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowBlur = 14 * SS;           // a bake's own context: scale shadows by hand
+  lines.forEach((l, i) => x.fillText(l, w / 2, pad + lineH * (i + .5)));
+  return { c, w, h };
+}
+function drawRise(sp, cx, y, prog, alpha) {
+  const a = alpha * prog; if (a <= .005) return;
+  ctx.save(); ctx.globalAlpha = a;
+  const blur = (1 - prog) * 7; if (blur > .3) ctx.filter = `blur(${blur.toFixed(1)}px)`;
+  ctx.drawImage(sp.c, cx - sp.w / 2, y + (1 - prog) * 16, sp.w, sp.h);   // always give a baked canvas its film-pixel size
+  ctx.restore();
+}
+
+// ════ SCENE ═════════════════════════════════════════════════════════════════
+// The timeline is data. Picture, text and sound all read these times.
+const LINES = [
+  { t0: 1.0, t1: 6.0, text: 'Replace these lines with the film’s text,' },
+  { t0: 6.0, t1: 11.0, text: 'each timed to the audio it belongs to.' },
+];
+const STARS = table(300, 11, r => ({ x: r() * W, y: r() * H * .8, s: .5 + r() * 1.4, ph: r() * 9 }));
+let textReady = false;
+const cache = new Map();
+function textCanvas(l) { if (!cache.has(l)) cache.set(l, setText(l.text, TEXT_FONT, 58, 820, '#efe6d2')); return cache.get(l); }
+
+function drawScene(t) {
+  // sky
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  const warm = smooth((t - 8) / 8);
+  g.addColorStop(0, rgba(mix(hex('#050818'), hex('#1d2a5c'), warm)));
+  g.addColorStop(.7, rgba(mix(hex('#131a3a'), hex('#d98a6a'), warm)));
+  g.addColorStop(1, rgba(mix(hex('#1c2448'), hex('#ffcf8a'), warm)));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fff';
+  for (const s of STARS) {
+    ctx.globalAlpha = (1 - warm) * (.5 + .5 * Math.sin(t * 2 + s.ph));
+    ctx.fillRect(s.x, s.y, s.s, s.s);
+  }
+  ctx.globalAlpha = 1;
+  // a slow push in: the camera is a transform, never a resized bitmap
+  const z = keyed(t, [[0, 1], [DURATION, 1.12]], true);
+  ctx.save(); ctx.translate(W / 2, H * .72); ctx.scale(z, z); ctx.translate(-W / 2, -H * .72);
+  ctx.fillStyle = '#0b0a12';
+  ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 10) ctx.lineTo(x, H * .72 + Math.pow((x - W / 2) / (W / 2), 2) * 120);
+  ctx.lineTo(W, H); ctx.fill();
+  ctx.restore();
+  // text
+  if (textReady) for (const l of LINES) {
+    if (t < l.t0 - .05 || t > l.t1 + .6) continue;
+    const out = 1 - smooth((t - l.t1 + .2) / .55);
+    drawRise(textCanvas(l), W / 2, H * .3, easeIO((t - l.t0) / 1.0), out);
+  }
+}
+const SHOTS = [{ id: 'open', start: 0, end: DURATION, readAt: 5, action: 'slow push in, dusk warms' }];
+const MARKS = LINES.map(l => l.t0);
+// ════ END SCENE ═════════════════════════════════════════════════════════════
+
+// ─── frame & grade ──────────────────────────────────────────────────────────
+const VIGNETTE = (() => {
+  const [c, x] = canvas(W, H);
+  const g = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .35, W / 2, H / 2, Math.max(W, H) * .75);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.4)');
+  x.fillStyle = g; x.fillRect(0, 0, W, H); return c;
+})();
+const GRAIN = [0, 1, 2].map(i => {
+  const [c, x] = canvas(256, 256), id = x.createImageData(256, 256), r = rng(900 + i);
+  for (let k = 0; k < id.data.length; k += 4) { const v = r() * 255; id.data[k] = id.data[k + 1] = id.data[k + 2] = v; id.data[k + 3] = 9; }
+  x.putImageData(id, 0, 0); return ctx.createPattern(c, 'repeat');
+});
+function seek(t) {
+  t = clamp(t, 0, DURATION);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
+  drawScene(t);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.filter = 'none';
+  ctx.drawImage(VIGNETTE, 0, 0, W, H);                     // a smooth gradient: baking it at 1× is fine
+  // grain keyed to the frame index, so a given t always gets the same grain
+  const f = Math.round(t * 30), gx = (f * 97) % 256, gy = (f * 57) % 256;
+  ctx.setTransform(1, 0, 0, 1, gx, gy); ctx.fillStyle = GRAIN[f % 3]; ctx.fillRect(-gx, -gy, W, H);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const black = Math.max(1 - clamp(t / .6), smooth((t - (DURATION - .8)) / .8));
+  if (black > 0) { ctx.fillStyle = `rgba(0,0,0,${black})`; ctx.fillRect(0, 0, W, H); }
+}
+
+window.__film = { duration: DURATION, ready: false, seek, shots: SHOTS, marks: MARKS };
+document.fonts.load(TEXT_FONT, 'Aa').then(() => { textReady = true; window.__film.ready = true; });
+
+// ─── player (not used by the render tools) ──────────────────────────────────
+const params = new URLSearchParams(location.search);
+const FIXED = params.has('t') ? parseFloat(params.get('t')) : null, CAPTURE = params.has('capture');
+const startEl = document.getElementById('start');
+let ac = null, buffer = null, play = null;
+async function startPlay() {
+  if (!ac) {
+    ac = new AudioContext();
+    if (window.FILM_AUDIO_B64) {
+      const bytes = Uint8Array.from(atob(window.FILM_AUDIO_B64), c => c.charCodeAt(0));
+      buffer = await ac.decodeAudioData(bytes.buffer);
+    }
+  }
+  await ac.resume();
+  if (play?.src) try { play.src.stop(); } catch {}
+  const t0 = ac.currentTime + .1; play = { t0 };
+  if (buffer) { const src = ac.createBufferSource(); src.buffer = buffer; src.connect(ac.destination); src.start(t0); play.src = src; }
+  startEl.style.display = 'none';
+}
+startEl.addEventListener('click', startPlay);
+cv.addEventListener('click', () => ac && (ac.state === 'running' ? ac.suspend() : ac.resume()));
+addEventListener('keydown', e => {
+  if (e.key === ' ' && ac) { e.preventDefault(); ac.state === 'running' ? ac.suspend() : ac.resume(); }
+  if (e.key.toLowerCase() === 'f') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+});
+function frame() {
+  const t = FIXED !== null ? FIXED : play ? ac.currentTime - play.t0 : (performance.now() / 1000) % DURATION;
+  seek(Math.max(0, t));
+  requestAnimationFrame(frame);
+}
+if (FIXED !== null || CAPTURE) startEl.remove();
+if (!CAPTURE) requestAnimationFrame(frame);
+</script>
+</body>
+</html>

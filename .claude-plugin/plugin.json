@@ -1,0 +1,10 @@
+{
+  "name": "opus-js-animations",
+  "version": "1.0.0",
+  "description": "Claude Opus 5.5 directs and renders films in JavaScript: brief → sound (file, YouTube via yt-dlp, generated Web Audio, or an ElevenLabs/OpenAI voiceover) → audio analysis → director's questions → a scene-by-scene treatment → a frame-exact MP4 for Reels, TikTok, Shorts, X or YouTube.",
+  "author": { "name": "klsoen", "url": "https://github.com/klsoen" },
+  "homepage": "https://github.com/klsoen/opus-js-animations",
+  "repository": "https://github.com/klsoen/opus-js-animations",
+  "license": "MIT",
+  "keywords": ["animation", "javascript", "canvas", "webgl", "threejs", "video", "motion-graphics", "reels", "tiktok", "text-to-speech", "yt-dlp", "claude-opus", "claude-skill"]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "opus-js-animations",
+  "owner": { "name": "klsoen", "url": "https://github.com/klsoen" },
+  "metadata": {
+    "description": "Films made entirely in JavaScript, directed and rendered by Claude Opus 5.5.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "opus-js-animations",
+      "source": "./",
+      "description": "Claude Opus 5.5 directs and renders films in JavaScript: it asks about your sound and your vision, pitches a treatment, then builds and renders a frame-exact MP4.",
+      "version": "1.0.0",
+      "author": { "name": "klsoen" },
+      "homepage": "https://github.com/klsoen/opus-js-animations",
+      "repository": "https://github.com/klsoen/opus-js-animations",
+      "license": "MIT",
+      "category": "creative",
+      "keywords": ["animation", "javascript", "video", "motion-graphics", "canvas", "webgl", "threejs"]
+    }
+  ]
+}
