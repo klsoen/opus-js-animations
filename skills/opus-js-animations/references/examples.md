@@ -38,7 +38,7 @@ stop-motion on mauve paper under a numbered title (*No. 1* · THE CLOCK · *Bras
 
 ## 5. "Shaml": a paper-lightbox scene (portrait + 16:9, 20.4 s, Canvas 2D)
 
-The style and its recipes are in `styles.md` §3. The opening is in the repo's `docs/shaml-opening-3s.gif`: a medallion of 336 cut-paper
+The style and its recipes are in `styles.md` §3. The opening is in the repo's `docs/shaml-opening-2.8s.gif`: a medallion of 336 cut-paper
 pieces bursts into spiral arms around a white-gold sun while large blurred pieces fly past the lens; the camera pulls back as the
 pieces unwind home and the first ones lock into place.
 

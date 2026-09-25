@@ -11,7 +11,7 @@ A skill and plugin for [Claude Code](https://claude.com/claude-code) that works 
    for Reels, TikTok, Shorts, X or YouTube.
 
 <p align="center">
-  <img src="docs/shaml-opening-3s.gif" width="250" alt="The opening of Shaml: a gold medallion of cut paper bursts into spiral arms around a white-gold sun, then gathers above two men">
+  <img src="docs/shaml-opening-2.8s.gif" width="250" alt="The opening of Shaml: a gold medallion of cut paper bursts into spiral arms around a white-gold sun, then gathers above two men">
   &nbsp;
   <img src="docs/script-of-me-opening.gif" width="250" alt="The opening of The Script of Me: a clock at half past midnight, a pendulum swinging in a pool of light, then the clock's parts laid out as No. 1, The Clock">
 </p>
