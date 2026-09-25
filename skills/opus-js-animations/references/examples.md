@@ -40,7 +40,7 @@ stop-motion on mauve paper under a numbered title (*No. 1* · THE CLOCK · *Bras
 
 The style and its recipes are in `styles.md` §3. The opening is in the repo's `docs/shaml-opening.gif`: a medallion of 336 cut-paper
 pieces bursts into spiral arms around a white-gold sun while large blurred pieces fly past the lens; the camera pulls back as the
-pieces unwind home, and one half locks into place piece by piece and lights from within while the other stays loose.
+pieces unwind home and the first ones lock into place.
 
 ## Patterns across them
 
