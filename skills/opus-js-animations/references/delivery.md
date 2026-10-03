@@ -40,13 +40,19 @@ afterwards. What decides it: how much of that small budget the picture needs, ho
 ## 3. The export
 
 `render.mjs` (default):
-- captures every frame losslessly as PNG from the canvas (`--fast` uses JPEG q .95, for previews only);
+- serves the film from its folder over `http://127.0.0.1` (`--root` serves a parent folder when the film loads files from outside its own);
+- runs the frame loop inside each worker's page: `seek(t)`, then a small WebGL2 exporter copies the canvas to a texture, scales it down
+  on the GPU when `--ss` > 1, reads the raw RGBA and POSTs it back; Node pipes it into ffmpeg as rawvideo. Three frames stay in flight,
+  so drawing, copying and encoding overlap;
+- `--legacy` keeps the old path (a lossless PNG of the canvas through DevTools, scaled in ffmpeg) for comparison; `--fast` encodes with
+  x264 "veryfast" at CRF 20 for previews; `--profile` prints what one frame costs to draw and to export;
 - converts to standard HD video: `yuv420p`, BT.709 matrix, limited (TV) range;
 - tags primaries, transfer, matrix and range as BT.709/TV, so phones and platform transcoders don't shift colours or lift or crush the
   blacks. The old path produced full-range, BT.601-flagged files.
 
-**Supersampling (`--ss 2`)**: the film draws every frame at 2× (2160×3840, `?ss=2`) and `render.mjs` scales it back down with Lanczos in
-16-bit RGB before the BT.709 conversion. Four samples per pixel give smoother edges, rounder type and less shimmer on moving detail.
+**Supersampling (`--ss 2`)**: the film draws every frame at 2× (2160×3840, `?ss=2`) and `render.mjs` scales it back down with a 3-lobe
+Lanczos on the GPU, in float, before the BT.709 conversion (`--legacy` does it in ffmpeg in 16-bit RGB; the two agree to PSNR 60–68 dB
+on most frames and about 50 dB on frames covered in per-frame grain, where they round differently). Four samples per pixel give smoother edges, rounder type and less shimmer on moving detail.
 - **Measured** on the opening burst of the same 20 s reel, against a 4× render boxed down to 1080×1920 (the nearest thing to the ideal picture):
   - the master moved from 39.1 to 45.0 dB PSNR (SSIM .985 → .996): a quarter of the error;
   - it stays ahead after a simulated Instagram re-encode: 32.7 → 33.5 dB (H.264, 3 Mbps) and 34.3 → 35.0 dB (AV1, 1.5 Mbps);
@@ -70,6 +76,22 @@ afterwards. What decides it: how much of that small budget the picture needs, ho
   - `verify.mjs --ss 2` passes;
   - a 2× frame scaled down matches the 1× frame at SSIM ≥ .95, with a difference map that lights only edges and fine texture.
 - **Covers:** grab at `ss=2` and scale down the same way.
+
+**Render time.** Time a short range (`--from --to`) before quoting a number, and report progress when asked.
+- **Where the time went** (Apple M1, a 61 s 1080×1920 film at 60 fps and `--ss 2`: WebGL2 with ~190k instanced particles and bloom,
+  plus Canvas 2D type). Drawing a frame took about 80 ms. The old export then spent ~220 ms encoding a PNG of the 2160×3840 canvas and
+  ~600 ms sending it as base64 through DevTools, and titles revealed with a per-letter `ctx.filter` blur took ~0.9 s a frame on their
+  own (`pitfalls.md`). The whole film took 21 min. With the raw export and the type blurred on small canvases it took **3 min 45 s**
+  on 2 workers, with the same frames.
+- **Workers:** every worker shares one GPU. A WebGL film saturates an M1 at about 2 workers; 3 or 4 only queue. Light Canvas 2D films
+  scale further. Run `render.mjs film.html --ss 2 --profile` first: it prints the draw and export cost of one frame.
+- **Progress:** `render.mjs` prints frames done and the frame rate every 2 s; the slowest worker sets the finish time.
+- **Speed-ups that keep the picture:**
+  - blur on a small canvas, never with `ctx.filter` on the full-size frame (`pitfalls.md`), and keep settled type as a sprite drawn
+    1:1 instead of setting it again every frame;
+  - bake anything that doesn't change with time once (a still grain texture, a static mask) instead of computing it per pixel per
+    frame;
+  - work out soft passes such as bloom at a quarter of the size and sample them back up (it measured 69 dB against full size).
 
 The upload copy for each format, 1080×1920 (or 1920×1080) at 30 fps:
 ```bash

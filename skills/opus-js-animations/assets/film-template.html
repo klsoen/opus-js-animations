@@ -118,11 +118,26 @@ function setText(text, font, lineH, maxW, color, rtl = false) {   // → { c, w,
   lines.forEach((l, i) => x.fillText(l, w / 2, pad + lineH * (i + .5)));
   return { c, w, h };
 }
+// Blur on a small scratch canvas, never with ctx.filter on the frame: a filter on the full-size canvas blurs a layer as big as
+// the whole canvas for every draw call (tens of milliseconds each at 2×, most of a second for a title revealed letter by letter).
+const [SCR, scr] = canvas(8, 8);
+function blurred(sp, blur) {                                          // → { c, w, h, pad }: the sprite blurred, with room for the blur
+  const pad = Math.ceil(blur * 3), cw = Math.ceil((sp.w + pad * 2) * SS), ch = Math.ceil((sp.h + pad * 2) * SS);
+  if (SCR.width < cw || SCR.height < ch) { SCR.width = Math.max(SCR.width, cw); SCR.height = Math.max(SCR.height, ch); }
+  scr.setTransform(1, 0, 0, 1, 0, 0); scr.clearRect(0, 0, cw, ch);
+  scr.filter = `blur(${(blur * SS).toFixed(2)}px)`;                   // a bake's own context: scale lengths by hand
+  scr.drawImage(sp.c, pad * SS, pad * SS);
+  scr.filter = 'none';
+  return { c: SCR, w: cw / SS, h: ch / SS, pad, cw, ch };
+}
 function drawRise(sp, cx, y, prog, alpha) {
   const a = alpha * prog; if (a <= .005) return;
   ctx.save(); ctx.globalAlpha = a;
-  const blur = (1 - prog) * 7; if (blur > .3) ctx.filter = `blur(${blur.toFixed(1)}px)`;
-  ctx.drawImage(sp.c, cx - sp.w / 2, y + (1 - prog) * 16, sp.w, sp.h);   // always give a baked canvas its film-pixel size
+  const blur = (1 - prog) * 7, x = cx - sp.w / 2, yy = y + (1 - prog) * 16;
+  if (blur > .3) {
+    const b = blurred(sp, blur);
+    ctx.drawImage(b.c, 0, 0, b.cw, b.ch, x - b.pad, yy - b.pad, b.w, b.h);
+  } else ctx.drawImage(sp.c, x, yy, sp.w, sp.h);                      // always give a baked canvas its film-pixel size
   ctx.restore();
 }
 

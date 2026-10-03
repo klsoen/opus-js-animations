@@ -112,6 +112,8 @@ The template has:
 Replace its SCENE block. Rules:
 - **Data drives both picture and sound.** The timeline (phrases, cues, keyframes) is data; picture and sound both read it.
 - **No hidden state in draw paths.** No `Math.random()` or frame counters there; pre-render sprites and text once.
+- **No full-frame canvas filters per element.** `ctx.filter = 'blur()'` on the frame blurs a layer the size of the whole canvas for every
+  draw call. Blur on a small canvas just big enough for the element (the template's `blurred()`), and keep settled type as a sprite.
 - **Physics replays deterministically.** Each shot resets from seeded state and steps at a fixed dt up to the frame; `draw` never writes simulation state (`styles.md` §2).
 - **Skies, space, terrain:** WebGL recipes in `shaders.md`, composited into the 2D canvas. **Many moving elements:** WebGL2 instancing in closed form (`tiles-and-flocks.md`).
 - **Figures:** a part-based skeleton with a rim light (`design.md` §6).
@@ -138,7 +140,7 @@ Fix, re-render those times and compare. Say plainly whether you listened to the 
 
 ### 8. Render
 ```bash
-node <skill>/scripts/render.mjs film/index.html --fps 30 --audio source/voice.wav --out film/film.mp4 --workers 4 --ss 2
+node <skill>/scripts/render.mjs film/index.html --fps 30 --audio source/voice.wav --out film/film.mp4 --workers 2 --ss 2
 ffmpeg -i film/film.mp4 -c:v libx264 -preset slow -crf 17 -maxrate 20M -bufsize 40M -profile:v high -pix_fmt yuv420p \
   -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 60 -c:a copy -movflags +faststart film/film-upload.mp4
 ```
@@ -150,6 +152,9 @@ ffmpeg -i film/film.mp4 -c:v libx264 -preset slow -crf 17 -maxrate 20M -bufsize 
     reads `?ss=` (the template does; `delivery.md` §3 lists what baked sprites and shaders need). Check with `verify.mjs --ss 2`.
     Draft renders can skip it; it doubles the render time.
 - **Frame-exact:** every frame is `seek(i/fps)`, encoded as H.264 CRF 16 with AAC.
+- **Fast export:** frames leave each page as raw pixels over local HTTP, scaled down on the GPU when `--ss` > 1, not as a PNG through
+  DevTools. It renders about 5× faster with the same frames. Use 2 workers for WebGL films (they share one GPU); `--profile` prints
+  what a frame costs to draw and to export, and `--legacy` keeps the old path (`delivery.md` §3).
 - **Generated sound:** a film that makes its own sound exposes `__film.wav()`. Pull it with `page_audio.mjs` and pass it as `--audio`.
 - **Several formats:** make one `film.js` feed thin HTML shells (`index.html` for 9:16, `x.html` for 16:9), and render each.
 - **Never screen-record.** Real-time capture drops frames.
